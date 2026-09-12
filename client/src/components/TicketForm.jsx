@@ -4,6 +4,12 @@ import { sampleTickets } from '../sampleTickets.js';
 
 const emptyTicket = { customerName: '', subject: '', description: '' };
 
+function validateTicket(ticket) {
+  if (!ticket.subject.trim()) return 'Please enter a subject.';
+  if (!ticket.description.trim()) return 'Please enter a description.';
+  return '';
+}
+
 function TicketForm({ onSubmitted }) {
   const [ticket, setTicket] = useState(emptyTicket);
   const [selectedSample, setSelectedSample] = useState('');
@@ -13,6 +19,7 @@ function TicketForm({ onSubmitted }) {
   function updateField(event) {
     const { name, value } = event.target;
     setTicket((currentTicket) => ({ ...currentTicket, [name]: value }));
+    if (error) setError('');
   }
 
   function selectSample(event) {
@@ -25,6 +32,13 @@ function TicketForm({ onSubmitted }) {
   async function handleSubmit(event) {
     event.preventDefault();
     setError('');
+
+    const validationError = validateTicket(ticket);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const rawResponse = await submitTicket(ticket);
@@ -53,7 +67,7 @@ function TicketForm({ onSubmitted }) {
         </label>
         <label>
           <span>Subject</span>
-          <input name="subject" value={ticket.subject} onChange={updateField} placeholder="What is the issue about?" required />
+          <input name="subject" value={ticket.subject} onChange={updateField} placeholder="What is the issue about?" required aria-invalid={Boolean(error && !ticket.subject.trim())} />
         </label>
       </div>
       <label>
