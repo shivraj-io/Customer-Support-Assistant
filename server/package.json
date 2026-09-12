@@ -1,0 +1,14 @@
+{
+  "name": "ticket-assistant-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "test:ai": "node test-ai.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0"
+  }
+}
