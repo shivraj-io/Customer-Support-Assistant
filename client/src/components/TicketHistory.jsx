@@ -37,7 +37,12 @@ function TicketHistory({ refreshKey, onSelectTicket }) {
         <span className="history-count">{tickets.length}</span>
       </div>
 
-      {isLoading && <p className="history-message">Loading history…</p>}
+      {isLoading && (
+        <p className="history-message loading-message">
+          <span className="spinner spinner-muted" aria-hidden="true" />
+          Loading history…
+        </p>
+      )}
       {!isLoading && error && <p className="history-error" role="alert">{error}</p>}
       {!isLoading && !error && tickets.length === 0 && (
         <p className="history-message">No tickets yet.</p>

@@ -11,6 +11,11 @@ Build a web app where a user submits a support ticket (subject + description) an
 
 This is a demo-quality MVP, not production software. Optimize for "it works end-to-end" over completeness.
 
+### Supported AI providers
+The backend makes one structured-JSON LLM call per ticket. It supports OpenAI,
+Anthropic, and Gemini; `AI_PROVIDER` can select the provider explicitly, or the
+backend uses the first configured provider key.
+
 ## 3. Users
 - Support agent (primary): pastes/enters a ticket, reviews AI output, copies the response.
 

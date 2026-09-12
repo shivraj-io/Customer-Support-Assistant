@@ -116,16 +116,65 @@ async function callAnthropic(prompt) {
   return payload.content?.[0]?.text || '';
 }
 
+async function callGemini(prompt) {
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+    {
+      method: 'POST',
+      headers: {
+        'x-goog-api-key': process.env.GEMINI_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: 'application/json' },
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Gemini request failed with status ${response.status}`);
+  }
+
+  const payload = await response.json();
+  return payload.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('') || '';
+}
+
 export async function classifyTicket(subject, description) {
   const provider = (process.env.AI_PROVIDER ||
-    (process.env.OPENAI_API_KEY ? 'openai' : process.env.ANTHROPIC_API_KEY ? 'anthropic' : '')).toLowerCase();
+    (process.env.OPENAI_API_KEY
+      ? 'openai'
+      : process.env.ANTHROPIC_API_KEY
+        ? 'anthropic'
+        : process.env.GEMINI_API_KEY
+          ? 'gemini'
+          : '')).toLowerCase();
 
   if (!provider) {
-    throw new Error('No LLM provider configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY in server/.env.');
+    throw new Error('No LLM provider configured. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY in server/.env.');
+  }
+
+  if (!['openai', 'anthropic', 'gemini'].includes(provider)) {
+    throw new Error(`Unsupported AI provider: ${provider}`);
+  }
+
+  if (provider === 'openai' && !process.env.OPENAI_API_KEY) {
+    throw new Error('AI_PROVIDER is openai but OPENAI_API_KEY is missing.');
+  }
+  if (provider === 'anthropic' && !process.env.ANTHROPIC_API_KEY) {
+    throw new Error('AI_PROVIDER is anthropic but ANTHROPIC_API_KEY is missing.');
+  }
+  if (provider === 'gemini' && !process.env.GEMINI_API_KEY) {
+    throw new Error('AI_PROVIDER is gemini but GEMINI_API_KEY is missing.');
   }
 
   const prompt = buildPrompt(subject, description);
-  const rawOutput = provider === 'anthropic' ? await callAnthropic(prompt) : await callOpenAI(prompt);
+  const rawOutput = provider === 'anthropic'
+    ? await callAnthropic(prompt)
+    : provider === 'gemini'
+      ? await callGemini(prompt)
+      : await callOpenAI(prompt);
   return parseAndValidate(rawOutput);
 }
 

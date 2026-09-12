@@ -62,6 +62,7 @@ function TicketForm({ onSubmitted }) {
       </label>
       {error && <p className="error-message" role="alert">{error}</p>}
       <button className="submit-button" type="submit" disabled={isSubmitting}>
+        {isSubmitting && <span className="spinner" aria-hidden="true" />}
         {isSubmitting ? 'Analyzing…' : 'Analyze Ticket'}
         {!isSubmitting && <span aria-hidden="true">→</span>}
       </button>

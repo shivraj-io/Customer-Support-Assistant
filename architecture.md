@@ -3,7 +3,7 @@
 ## 1. Stack (chosen for speed with Codex + MERN familiarity)
 - **Frontend:** React (Vite) + plain CSS (or Tailwind if Codex scaffolds it fast)
 - **Backend:** Node.js + Express
-- **AI:** Single LLM API call (Anthropic or OpenAI — whichever key is available) doing classification + priority + response generation in one structured-JSON prompt
+- **AI:** Single LLM API call (OpenAI, Anthropic, or Gemini — selected by `AI_PROVIDER` or the first configured provider key) doing classification + priority + response generation in one structured-JSON prompt
 - **Database:** MongoDB via Mongoose. Tickets persist across server restarts and across the whole demo — this also makes the project read as a real MERN stack, not a toy.
 - **No auth, no queue, no external ticketing integration.** (In-memory fallback is documented in section 8 if MongoDB setup eats too much time.)
 
@@ -124,6 +124,13 @@ You are a support-ticket triage assistant. Given the ticket below, return ONLY v
 Ticket subject: {{subject}}
 Ticket description: {{description}}
 ```
+
+The same prompt and validation flow is used for all supported providers. OpenAI uses
+JSON response format, Anthropic receives the JSON-only instruction in the prompt, and
+Gemini uses `generateContent` with `responseMimeType: "application/json"`. Provider
+credentials are configured with `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or
+`GEMINI_API_KEY`; `AI_PROVIDER` may be set explicitly to `openai`, `anthropic`, or
+`gemini`.
 Backend parses the JSON and validates every field against its allowed set:
 - If parsing fails entirely, or `category`/`priority`/`sentiment` are missing/invalid → fall back to `category: "General"`, `priority: "Medium"`, `sentiment: "Calm"`, `confidence: 50`, `nextAction: "Review manually"`, and a generic acknowledgment response.
 - Compute `lowConfidence = confidence < 60` server-side.
