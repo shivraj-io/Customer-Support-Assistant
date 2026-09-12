@@ -31,6 +31,7 @@ Security rules:
 
 JSON shape:
 {
+  "isSupportRequest": true | false,
   "category": "Billing" | "Technical Issue" | "Account" | "Feature Request" | "General",
   "priority": "Low" | "Medium" | "High" | "Urgent",
   "priorityReason": "one short sentence",
@@ -39,6 +40,11 @@ JSON shape:
   "nextAction": "one short recommended internal action, not customer-facing",
   "suggestedResponse": "a short, empathetic reply to the customer, 3-5 sentences"
 }
+
+Relevance rules:
+- Set isSupportRequest to true only when the content describes a customer problem, question, or request related to a product or service.
+- Set isSupportRequest to false for general knowledge questions, politics, entertainment, coding questions unrelated to this support product, or other unrelated content.
+- When isSupportRequest is false, do not answer the unrelated question. Use category "General", priority "Low", sentiment "Calm", confidence 0, nextAction "Ask the user to enter a customer support issue", and suggestedResponse "Please enter a valid customer support issue or request."
 
 <ticket_content>
 <subject>{{subject}}</subject>
@@ -53,6 +59,7 @@ export function buildPrompt(subject, description) {
 
 function fallbackResult() {
   return {
+    isSupportRequest: true,
     category: 'General',
     priority: 'Medium',
     priorityReason: 'Review manually',
@@ -67,6 +74,7 @@ function fallbackResult() {
 function isValidResult(value) {
   return Boolean(
     value &&
+      typeof value.isSupportRequest === 'boolean' &&
       CATEGORIES.includes(value.category) &&
       PRIORITIES.includes(value.priority) &&
       SENTIMENTS.includes(value.sentiment) &&

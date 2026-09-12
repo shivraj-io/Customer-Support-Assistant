@@ -79,6 +79,12 @@ router.post('/', async (req, res) => {
     });
   }
 
+  if (!classification.isSupportRequest) {
+    return res.status(400).json({
+      error: 'Please enter a valid customer support issue or request in the description.',
+    });
+  }
+
   try {
     const { agentName, team } = getAssignedAgent(classification.category);
     const savedTicket = await Ticket.create({
