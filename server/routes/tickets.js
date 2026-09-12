@@ -6,6 +6,9 @@ import { sanitizeSensitiveData } from '../services/sensitiveDataService.js';
 import Ticket from '../models/Ticket.js';
 
 const router = Router();
+const MAX_SUBJECT_LENGTH = 200;
+const MAX_DESCRIPTION_LENGTH = 5000;
+const MAX_CUSTOMER_NAME_LENGTH = 120;
 
 function toTicketResponse(ticket) {
   return {
@@ -32,6 +35,16 @@ router.post('/', async (req, res) => {
 
   if (typeof subject !== 'string' || !subject.trim() || typeof description !== 'string' || !description.trim()) {
     return res.status(400).json({ error: 'Subject and description are required.' });
+  }
+
+  if (
+    subject.trim().length > MAX_SUBJECT_LENGTH ||
+    description.trim().length > MAX_DESCRIPTION_LENGTH ||
+    (typeof customerName === 'string' && customerName.trim().length > MAX_CUSTOMER_NAME_LENGTH)
+  ) {
+    return res.status(400).json({
+      error: `Subject must be ${MAX_SUBJECT_LENGTH} characters or fewer, description must be ${MAX_DESCRIPTION_LENGTH} characters or fewer, and customer name must be ${MAX_CUSTOMER_NAME_LENGTH} characters or fewer.`,
+    });
   }
 
   const sanitizedSubject = sanitizeSensitiveData(subject.trim());

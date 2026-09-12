@@ -63,16 +63,16 @@ function TicketForm({ onSubmitted }) {
       <div className="field-grid">
         <label>
           <span>Customer name <em>Optional</em></span>
-          <input name="customerName" value={ticket.customerName} onChange={updateField} placeholder="e.g. Alex Morgan" />
+          <input name="customerName" value={ticket.customerName} onChange={updateField} placeholder="e.g. Alex Morgan" maxLength="120" />
         </label>
         <label>
           <span>Subject</span>
-          <input name="subject" value={ticket.subject} onChange={updateField} placeholder="What is the issue about?" required aria-invalid={Boolean(error && !ticket.subject.trim())} />
+          <input name="subject" value={ticket.subject} onChange={updateField} placeholder="What is the issue about?" maxLength="200" required aria-invalid={Boolean(error && !ticket.subject.trim())} />
         </label>
       </div>
       <label>
         <span>Description</span>
-        <textarea name="description" value={ticket.description} onChange={updateField} placeholder="Describe the customer's issue or request…" rows="7" required />
+        <textarea name="description" value={ticket.description} onChange={updateField} placeholder="Describe the customer's issue or request…" maxLength="5000" rows="7" required />
       </label>
       {error && <p className="error-message" role="alert">{error}</p>}
       <button className="submit-button" type="submit" disabled={isSubmitting}>

@@ -6,7 +6,7 @@ import { connectDB } from './db.js';
 const app = express();
 const port = Number(process.env.PORT) || 3001;
 
-app.use(express.json());
+app.use(express.json({ limit: '100kb' }));
 app.use('/api/tickets', ticketsRouter);
 
 async function startServer() {
