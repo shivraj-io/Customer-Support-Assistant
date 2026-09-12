@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { randomUUID } from 'node:crypto';
 import express from 'express';
 import ticketsRouter from './routes/tickets.js';
 import { connectDB } from './db.js';
@@ -6,6 +7,11 @@ import { connectDB } from './db.js';
 const app = express();
 const port = Number(process.env.PORT) || 3001;
 
+app.use((req, res, next) => {
+  req.requestId = randomUUID();
+  res.setHeader('X-Request-Id', req.requestId);
+  next();
+});
 app.use(express.json({ limit: '100kb' }));
 app.use('/api/tickets', ticketsRouter);
 

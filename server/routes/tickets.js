@@ -55,7 +55,10 @@ router.post('/', async (req, res) => {
   ];
 
   if (detectedSensitiveTypes.length > 0) {
-    console.warn('Sensitive data redacted from ticket:', [...new Set(detectedSensitiveTypes)].join(', '));
+    console.warn('Sensitive data redacted from ticket:', {
+      requestId: req.requestId,
+      detectedTypes: [...new Set(detectedSensitiveTypes)],
+    });
   }
 
   let classification;
@@ -65,8 +68,15 @@ router.post('/', async (req, res) => {
       sanitizedDescription.sanitizedText,
     );
   } catch (error) {
-    console.error('Ticket classification failed:', error.message);
-    return res.status(502).json({ error: 'Unable to analyze the ticket right now. Please try again.' });
+    console.error('Ticket classification failed:', {
+      requestId: req.requestId,
+      errorType: error.name,
+      message: error.message,
+    });
+    return res.status(502).json({
+      error: 'Unable to analyze the ticket right now. Please try again.',
+      requestId: req.requestId,
+    });
   }
 
   try {
@@ -82,8 +92,15 @@ router.post('/', async (req, res) => {
 
     return res.status(200).json(toTicketResponse(savedTicket));
   } catch (error) {
-    console.error('Ticket save failed:', error.message);
-    return res.status(502).json({ error: 'Ticket was analyzed but could not be saved. Please try again.' });
+    console.error('Ticket save failed:', {
+      requestId: req.requestId,
+      errorType: error.name,
+      message: error.message,
+    });
+    return res.status(502).json({
+      error: 'Ticket was analyzed but could not be saved. Please try again.',
+      requestId: req.requestId,
+    });
   }
 });
 

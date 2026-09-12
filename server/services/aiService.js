@@ -60,13 +60,13 @@ function parseAndValidate(rawOutput) {
   try {
     const parsed = JSON.parse(rawOutput);
     if (!isValidResult(parsed)) {
-      console.warn('AI response failed validation; using fallback.', rawOutput);
+      console.warn('AI response failed validation; using fallback.');
       return fallbackResult();
     }
 
     return { ...parsed, lowConfidence: parsed.confidence < 60 };
   } catch {
-    console.warn('AI response was not valid JSON; using fallback.', rawOutput);
+    console.warn('AI response was not valid JSON; using fallback.');
     return fallbackResult();
   }
 }
