@@ -6,6 +6,19 @@ const SENTIMENTS = ['Calm', 'Frustrated', 'Angry'];
 
 const GENERIC_RESPONSE =
   'Thanks for reaching out. We have received your request and will review it shortly.';
+const SUPPORTED_PROVIDERS = ['openai', 'anthropic', 'gemini'];
+const RETRYABLE_STATUS_CODES = new Set([429, 502, 503, 504]);
+const PROVIDER_TIMEOUT_MS = 20_000;
+
+class ProviderError extends Error {
+  constructor(provider, message, { statusCode = 0, retryable = false } = {}) {
+    super(message);
+    this.name = 'ProviderError';
+    this.provider = provider;
+    this.statusCode = statusCode;
+    this.retryable = retryable;
+  }
+}
 
 export const PROMPT_TEMPLATE = `You are a support-ticket triage assistant. Analyze the customer ticket below and return ONLY valid JSON
 (no markdown, no commentary) with this exact shape.
@@ -82,7 +95,7 @@ function parseAndValidate(rawOutput) {
 }
 
 async function callOpenAI(prompt) {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetchWithTimeout('openai', 'https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
@@ -95,16 +108,12 @@ async function callOpenAI(prompt) {
     }),
   });
 
-  if (!response.ok) {
-    throw new Error(`OpenAI request failed with status ${response.status}`);
-  }
-
   const payload = await response.json();
   return payload.choices?.[0]?.message?.content || '';
 }
 
 async function callAnthropic(prompt) {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const response = await fetchWithTimeout('anthropic', 'https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'x-api-key': process.env.ANTHROPIC_API_KEY,
@@ -118,17 +127,14 @@ async function callAnthropic(prompt) {
     }),
   });
 
-  if (!response.ok) {
-    throw new Error(`Anthropic request failed with status ${response.status}`);
-  }
-
   const payload = await response.json();
   return payload.content?.[0]?.text || '';
 }
 
 async function callGemini(prompt) {
   const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-  const response = await fetch(
+  const response = await fetchWithTimeout(
+    'gemini',
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
     {
       method: 'POST',
@@ -143,42 +149,90 @@ async function callGemini(prompt) {
     },
   );
 
-  if (!response.ok) {
-    throw new Error(`Gemini request failed with status ${response.status}`);
-  }
-
   const payload = await response.json();
   return payload.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('') || '';
 }
 
+async function fetchWithTimeout(provider, url, options) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    if (!response.ok) {
+      throw new ProviderError(
+        provider,
+        `${provider} request failed with status ${response.status}`,
+        { statusCode: response.status, retryable: RETRYABLE_STATUS_CODES.has(response.status) },
+      );
+    }
+    return response;
+  } catch (error) {
+    if (error instanceof ProviderError) throw error;
+    if (error.name === 'AbortError') {
+      throw new ProviderError(provider, `${provider} request timed out`, { retryable: true });
+    }
+    throw new ProviderError(provider, `${provider} request failed: ${error.message}`, { retryable: true });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function getProviderOrder() {
+  const configuredOrder = process.env.AI_PROVIDER_ORDER || process.env.AI_PROVIDER || 'gemini';
+  const providers = configuredOrder
+    .split(',')
+    .map((provider) => provider.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (!providers.length || providers.some((provider) => !SUPPORTED_PROVIDERS.includes(provider))) {
+    throw new Error(`Unsupported AI provider order: ${configuredOrder}`);
+  }
+
+  return [...new Set(providers)];
+}
+
+function assertProviderConfigured(provider) {
+  const keyByProvider = {
+    openai: 'OPENAI_API_KEY',
+    anthropic: 'ANTHROPIC_API_KEY',
+    gemini: 'GEMINI_API_KEY',
+  };
+  const keyName = keyByProvider[provider];
+
+  if (!process.env[keyName]) {
+    throw new Error(`AI provider ${provider} is selected but ${keyName} is missing.`);
+  }
+}
+
 export async function classifyTicket(subject, description) {
-  const provider = (process.env.AI_PROVIDER || 'gemini').toLowerCase();
-
-  if (!process.env.GEMINI_API_KEY && provider === 'gemini') {
-    throw new Error('Gemini is selected but GEMINI_API_KEY is missing in server/.env.');
-  }
-
-  if (!['openai', 'anthropic', 'gemini'].includes(provider)) {
-    throw new Error(`Unsupported AI provider: ${provider}`);
-  }
-
-  if (provider === 'openai' && !process.env.OPENAI_API_KEY) {
-    throw new Error('AI_PROVIDER is openai but OPENAI_API_KEY is missing.');
-  }
-  if (provider === 'anthropic' && !process.env.ANTHROPIC_API_KEY) {
-    throw new Error('AI_PROVIDER is anthropic but ANTHROPIC_API_KEY is missing.');
-  }
-  if (provider === 'gemini' && !process.env.GEMINI_API_KEY) {
-    throw new Error('AI_PROVIDER is gemini but GEMINI_API_KEY is missing.');
-  }
-
   const prompt = buildPrompt(subject, description);
-  const rawOutput = provider === 'anthropic'
-    ? await callAnthropic(prompt)
-    : provider === 'gemini'
-      ? await callGemini(prompt)
-      : await callOpenAI(prompt);
-  return parseAndValidate(rawOutput);
+  const providers = getProviderOrder();
+
+  for (let index = 0; index < providers.length; index += 1) {
+    const provider = providers[index];
+    assertProviderConfigured(provider);
+
+    try {
+      const rawOutput = provider === 'anthropic'
+        ? await callAnthropic(prompt)
+        : provider === 'gemini'
+          ? await callGemini(prompt)
+          : await callOpenAI(prompt);
+      return parseAndValidate(rawOutput);
+    } catch (error) {
+      const hasFallback = index < providers.length - 1;
+      if (!error.retryable || !hasFallback) throw error;
+
+      console.warn('AI provider unavailable; trying next configured provider.', {
+        provider,
+        statusCode: error.statusCode || undefined,
+        nextProvider: providers[index + 1],
+      });
+    }
+  }
+
+  throw new Error('No AI provider was available.');
 }
 
 export { fallbackResult, parseAndValidate };
