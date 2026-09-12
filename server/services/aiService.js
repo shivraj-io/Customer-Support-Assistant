@@ -98,18 +98,18 @@ function isValidResult(value) {
   );
 }
 
-function parseAndValidate(rawOutput) {
+function parseAndValidate(rawOutput, subject = '', description = '') {
   try {
     const parsed = JSON.parse(rawOutput);
     if (!isValidResult(parsed)) {
       console.warn('AI response failed validation; using fallback.');
-      return fallbackResult();
+      return fallbackResult(subject, description);
     }
 
     return { ...parsed, lowConfidence: parsed.confidence < 60 };
   } catch {
     console.warn('AI response was not valid JSON; using fallback.');
-    return fallbackResult();
+    return fallbackResult(subject, description);
   }
 }
 
@@ -274,7 +274,7 @@ export async function classifyTicket(subject, description) {
 
     try {
       const rawOutput = await callProvider(provider, prompt);
-      return parseAndValidate(rawOutput);
+      return parseAndValidate(rawOutput, subject, description);
     } catch (error) {
       const hasFallback = index < providers.length - 1;
       if (!hasFallback) {
