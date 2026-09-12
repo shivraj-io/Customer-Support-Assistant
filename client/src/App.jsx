@@ -24,7 +24,7 @@ function App() {
         <p className="eyebrow">Support operations</p>
         <h1>Ticket Assistant</h1>
         <p className="subtitle">
-          Powered by GPT-4o mini — classifies, prioritizes, and drafts replies in a single call.
+          Powered by Gemini 2.5 Flash — classifies, prioritizes, and drafts replies in a single call.
         </p>
       </header>
 
