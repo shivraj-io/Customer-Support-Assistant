@@ -15,3 +15,14 @@ export async function submitTicket(ticket) {
 
   return rawResponse;
 }
+
+export async function getTickets() {
+  const response = await fetch('/api/tickets');
+  const rawResponse = await response.json();
+
+  if (!response.ok) {
+    throw new Error(rawResponse.error || 'Unable to load ticket history.');
+  }
+
+  return rawResponse;
+}

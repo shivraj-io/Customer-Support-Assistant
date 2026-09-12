@@ -1,9 +1,26 @@
 import { Router } from 'express';
-import { randomUUID } from 'node:crypto';
 import { classifyTicket } from '../services/aiService.js';
-import { addTicket, getAllTickets } from '../store.js';
+import Ticket from '../models/Ticket.js';
 
 const router = Router();
+
+function toTicketResponse(ticket) {
+  return {
+    id: ticket._id.toString(),
+    customerName: ticket.customerName,
+    subject: ticket.subject,
+    description: ticket.description,
+    category: ticket.category,
+    priority: ticket.priority,
+    priorityReason: ticket.priorityReason,
+    sentiment: ticket.sentiment,
+    confidence: ticket.confidence,
+    nextAction: ticket.nextAction,
+    suggestedResponse: ticket.suggestedResponse,
+    createdAt: ticket.createdAt.toISOString(),
+    lowConfidence: ticket.lowConfidence,
+  };
+}
 
 router.post('/', async (req, res) => {
   const { customerName = '', subject, description } = req.body ?? {};
@@ -12,29 +29,33 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'Subject and description are required.' });
   }
 
+  let classification;
   try {
-    const classification = await classifyTicket(subject.trim(), description.trim());
-    const ticket = {
-      id: randomUUID(),
+    classification = await classifyTicket(subject.trim(), description.trim());
+  } catch (error) {
+    console.error('Ticket classification failed:', error.message);
+    return res.status(502).json({ error: 'Unable to analyze the ticket right now. Please try again.' });
+  }
+
+  try {
+    const savedTicket = await Ticket.create({
       customerName: typeof customerName === 'string' ? customerName.trim() : '',
       subject: subject.trim(),
       description: description.trim(),
       ...classification,
-      createdAt: new Date().toISOString(),
-    };
+    });
 
-    const savedTicket = await addTicket(ticket);
-    return res.status(200).json(savedTicket);
+    return res.status(200).json(toTicketResponse(savedTicket));
   } catch (error) {
-    console.error('Ticket classification failed:', error.message);
-    return res.status(502).json({ error: 'Unable to analyze the ticket right now. Please try again.' });
+    console.error('Ticket save failed:', error.message);
+    return res.status(502).json({ error: 'Ticket was analyzed but could not be saved. Please try again.' });
   }
 });
 
 router.get('/', async (req, res) => {
   try {
-    const tickets = await getAllTickets();
-    return res.status(200).json(tickets);
+    const tickets = await Ticket.find().sort({ createdAt: -1 }).lean();
+    return res.status(200).json(tickets.map(toTicketResponse));
   } catch (error) {
     console.error('Ticket history lookup failed:', error.message);
     return res.status(500).json({ error: 'Unable to load ticket history right now.' });
