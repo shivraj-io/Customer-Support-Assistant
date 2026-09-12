@@ -142,17 +142,10 @@ async function callGemini(prompt) {
 }
 
 export async function classifyTicket(subject, description) {
-  const provider = (process.env.AI_PROVIDER ||
-    (process.env.OPENAI_API_KEY
-      ? 'openai'
-      : process.env.ANTHROPIC_API_KEY
-        ? 'anthropic'
-        : process.env.GEMINI_API_KEY
-          ? 'gemini'
-          : '')).toLowerCase();
+  const provider = (process.env.AI_PROVIDER || 'gemini').toLowerCase();
 
-  if (!provider) {
-    throw new Error('No LLM provider configured. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY in server/.env.');
+  if (!process.env.GEMINI_API_KEY && provider === 'gemini') {
+    throw new Error('Gemini is selected but GEMINI_API_KEY is missing in server/.env.');
   }
 
   if (!['openai', 'anthropic', 'gemini'].includes(provider)) {
