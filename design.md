@@ -77,6 +77,7 @@ Two-column layout on desktop, stacked on mobile:
 ### Ticket History
 - Compact list: subject (truncated) + priority dot + relative timestamp.
 - Clicking an item loads it back into the Result Card.
+- Loaded from MongoDB on page load via `GET /api/tickets` — so a page refresh (or backend restart) still shows prior tickets, not an empty list. Show a brief loading skeleton/spinner in the history panel while this initial fetch happens.
 - Empty state: "No tickets yet."
 
 ## 5. States to Handle

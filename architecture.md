@@ -4,8 +4,8 @@
 - **Frontend:** React (Vite) + plain CSS (or Tailwind if Codex scaffolds it fast)
 - **Backend:** Node.js + Express
 - **AI:** Single LLM API call (Anthropic or OpenAI — whichever key is available) doing classification + priority + response generation in one structured-JSON prompt
-- **Storage:** In-memory array on the backend (no DB). Optional: persist to a local `tickets.json` file so data survives a server restart.
-- **No auth, no queue, no external ticketing integration.**
+- **Database:** MongoDB via Mongoose. Tickets persist across server restarts and across the whole demo — this also makes the project read as a real MERN stack, not a toy.
+- **No auth, no queue, no external ticketing integration.** (In-memory fallback is documented in section 8 if MongoDB setup eats too much time.)
 
 ## 2. High-Level Flow
 ```
@@ -21,23 +21,26 @@
                         [Validate/parse JSON, fallback if malformed]
                                         |
                                         v
-                        [Store ticket + result in-memory]
+                        [Save ticket + result to MongoDB]
                                         |
                                         v
-[React renders Ticket Card] <--response-- [Return ticket object]
+[React renders Ticket Card] <--response-- [Return saved ticket document]
 ```
 
 ## 3. Folder Structure
 ```
 ticket-assistant/
 ├── server/
-│   ├── index.js              # Express app entry
+│   ├── index.js              # Express app entry, connects to MongoDB on startup
+│   ├── db.js                 # Mongoose connection setup
+│   ├── models/
+│   │   └── Ticket.js         # Mongoose schema/model
 │   ├── routes/
 │   │   └── tickets.js        # POST /api/tickets, GET /api/tickets
 │   ├── services/
 │   │   └── aiService.js      # buildPrompt(), classifyTicket()
-│   ├── store.js              # in-memory tickets array + helpers
-│   └── .env                  # API key
+│   ├── .env                  # API key + MONGO_URI
+│   └── .env.example
 └── client/
     ├── src/
     │   ├── App.jsx
@@ -50,6 +53,28 @@ ticket-assistant/
     └── index.html
 ```
 
+## 3a. MongoDB Setup
+- **Fastest option for a hackathon:** MongoDB Atlas free tier (cloud, no local install, connection string in `.env` as `MONGO_URI`). Avoids installing/running `mongod` locally under time pressure.
+- **Local option:** if MongoDB is already installed and running locally, `MONGO_URI=mongodb://localhost:27017/ticket-assistant` works fine — no cloud setup needed.
+- **Ticket schema (`models/Ticket.js`):**
+```js
+{
+  customerName: { type: String, default: "" },
+  subject: { type: String, required: true },
+  description: { type: String, required: true },
+  category: { type: String, enum: ["Billing", "Technical Issue", "Account", "Feature Request", "General"], required: true },
+  priority: { type: String, enum: ["Low", "Medium", "High", "Urgent"], required: true },
+  priorityReason: String,
+  sentiment: { type: String, enum: ["Calm", "Frustrated", "Angry"], required: true },
+  confidence: { type: Number, min: 0, max: 100 },
+  lowConfidence: Boolean,
+  nextAction: String,
+  suggestedResponse: String,
+  createdAt: { type: Date, default: Date.now }
+}
+```
+- **`db.js`** connects once on server startup (`mongoose.connect(process.env.MONGO_URI)`) and logs success/failure clearly — if the connection fails, log it loudly and exit, rather than silently running with broken persistence.
+
 ## 4. API Contract
 
 ### POST `/api/tickets`
@@ -60,7 +85,7 @@ ticket-assistant/
 **Response (200):**
 ```json
 {
-  "id": "uuid",
+  "id": "<MongoDB _id>",
   "customerName": "Optional",
   "subject": "Cannot log in",
   "description": "Getting 500 error since this morning",
@@ -79,7 +104,7 @@ ticket-assistant/
 **Response (4xx/5xx):** `{ "error": "message" }`
 
 ### GET `/api/tickets`
-Returns array of all processed tickets (newest first), for the history panel.
+Returns array of all processed tickets from MongoDB, sorted `createdAt` descending (newest first), for the history panel. Tickets now persist across server restarts — history survives even if you stop/restart the backend mid-demo.
 
 ## 5. AI Prompting Strategy
 Single call, single prompt, ask for JSON only — all fields (including the differentiators) come from this one call, so there's no added latency cost for adding them:
@@ -109,13 +134,15 @@ Backend parses the JSON and validates every field against its allowed set:
 - Empty subject/description → 400 before calling the LLM.
 - LLM call fails/times out → return 502 with a friendly error; frontend shows a retry button.
 - Malformed JSON from LLM → fallback values (see above), still return 200 so the demo doesn't break.
+- **MongoDB connection fails on startup** → log a clear error and stop the server (fail loud at boot, not silently mid-demo). Double-check `MONGO_URI` is correct before the demo starts.
+- **MongoDB write fails on a single request** (rare, e.g. transient network blip on Atlas) → return 502 with a friendly error; the AI classification already succeeded, so this only affects persistence, not the on-screen result — consider still rendering the result card even if the save fails, so the demo isn't blocked by a DB hiccup.
 
 ## 7. Demo Support Files
 - `server/sampleTickets.js` (or `client/src/sampleTickets.js`): 5–8 hardcoded tickets covering an angry-but-low-priority case, an urgent outage, an ambiguous ticket, a billing refund, and a feature request. Used for one-click demo submission — don't type ticket text live during judging.
 - `README.md` at repo root: what it does, stack used, setup commands, and a 2–3 sentence pitch highlighting sentiment-vs-priority + confidence flagging + next-action as the differentiators.
 
 ## 8. What to Cut First Under Time Pressure
-1. `tickets.json` file persistence — pure in-memory is fine.
+1. **MongoDB Atlas setup taking too long?** Fall back to a local `mongod` if installed, or as a last resort revert to the original in-memory array (`store.js` with a plain JS array) — the API contract (section 4) stays identical either way, so nothing else in the app needs to change. Don't let DB setup block the rest of the build past ~15–20 minutes.
 2. Editable response textarea — read-only display is acceptable.
 3. Tailwind setup — hand-rolled CSS is faster if Codex stalls on config.
 4. `nextAction` field — cut last, since it's just one more JSON key on the same call (near-zero cost), but if the prompt is misbehaving, drop it before touching category/priority.
