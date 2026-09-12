@@ -9,14 +9,17 @@ const GENERIC_RESPONSE =
 const SUPPORTED_PROVIDERS = ['openai', 'anthropic', 'gemini'];
 const RETRYABLE_STATUS_CODES = new Set([429, 502, 503, 504]);
 const PROVIDER_TIMEOUT_MS = 20_000;
+const MAX_PROVIDER_ATTEMPTS = 2;
+const MAX_RETRY_DELAY_MS = 5_000;
 
 class ProviderError extends Error {
-  constructor(provider, message, { statusCode = 0, retryable = false } = {}) {
+  constructor(provider, message, { statusCode = 0, retryable = false, retryAfter = null } = {}) {
     super(message);
     this.name = 'ProviderError';
     this.provider = provider;
     this.statusCode = statusCode;
     this.retryable = retryable;
+    this.retryAfter = retryAfter;
   }
 }
 
@@ -169,10 +172,15 @@ async function fetchWithTimeout(provider, url, options) {
   try {
     const response = await fetch(url, { ...options, signal: controller.signal });
     if (!response.ok) {
+      const retryAfter = response.headers.get('retry-after');
       throw new ProviderError(
         provider,
         `${provider} request failed with status ${response.status}`,
-        { statusCode: response.status, retryable: RETRYABLE_STATUS_CODES.has(response.status) },
+        {
+          statusCode: response.status,
+          retryable: RETRYABLE_STATUS_CODES.has(response.status),
+          retryAfter,
+        },
       );
     }
     return response;
@@ -185,6 +193,41 @@ async function fetchWithTimeout(provider, url, options) {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function getRetryDelay(error, attempt) {
+  const retryAfterMs = Number(error.retryAfter) * 1_000;
+  if (Number.isFinite(retryAfterMs) && retryAfterMs >= 0) {
+    return Math.min(retryAfterMs, MAX_RETRY_DELAY_MS);
+  }
+
+  return Math.min(500 * 2 ** attempt, MAX_RETRY_DELAY_MS);
+}
+
+async function callProvider(provider, prompt) {
+  for (let attempt = 0; attempt < MAX_PROVIDER_ATTEMPTS; attempt += 1) {
+    try {
+      return provider === 'anthropic'
+        ? await callAnthropic(prompt)
+        : provider === 'gemini'
+          ? await callGemini(prompt)
+          : await callOpenAI(prompt);
+    } catch (error) {
+      const canRetry = error.retryable && attempt < MAX_PROVIDER_ATTEMPTS - 1;
+      if (!canRetry) throw error;
+
+      const delay = getRetryDelay(error, attempt);
+      console.warn('AI provider request was transiently unavailable; retrying.', {
+        provider,
+        statusCode: error.statusCode || undefined,
+        attempt: attempt + 1,
+        delayMs: delay,
+      });
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  throw new Error(`No response from ${provider}.`);
 }
 
 function getProviderOrder() {
@@ -223,15 +266,21 @@ export async function classifyTicket(subject, description) {
     assertProviderConfigured(provider);
 
     try {
-      const rawOutput = provider === 'anthropic'
-        ? await callAnthropic(prompt)
-        : provider === 'gemini'
-          ? await callGemini(prompt)
-          : await callOpenAI(prompt);
+      const rawOutput = await callProvider(provider, prompt);
       return parseAndValidate(rawOutput);
     } catch (error) {
       const hasFallback = index < providers.length - 1;
-      if (!error.retryable || !hasFallback) throw error;
+      if (!error.retryable || !hasFallback) {
+        if (error.retryable) {
+          console.warn('All configured AI providers are temporarily unavailable; using fallback classification.', {
+            provider,
+            statusCode: error.statusCode || undefined,
+          });
+          return fallbackResult();
+        }
+
+        throw error;
+      }
 
       console.warn('AI provider unavailable; trying next configured provider.', {
         provider,
