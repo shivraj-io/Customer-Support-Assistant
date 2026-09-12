@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import mongoose from 'mongoose';
 import { classifyTicket } from '../services/aiService.js';
+import { getAssignedAgent } from '../services/assignmentService.js';
 import Ticket from '../models/Ticket.js';
 
 const router = Router();
@@ -16,6 +17,8 @@ function toTicketResponse(ticket) {
     priorityReason: ticket.priorityReason,
     sentiment: ticket.sentiment,
     confidence: ticket.confidence,
+    assignedAgent: ticket.assignedAgent,
+    assignedTeam: ticket.assignedTeam,
     nextAction: ticket.nextAction,
     suggestedResponse: ticket.suggestedResponse,
     createdAt: ticket.createdAt.toISOString(),
@@ -39,11 +42,14 @@ router.post('/', async (req, res) => {
   }
 
   try {
+    const { agentName, team } = getAssignedAgent(classification.category);
     const savedTicket = await Ticket.create({
       customerName: typeof customerName === 'string' ? customerName.trim() : '',
       subject: subject.trim(),
       description: description.trim(),
       ...classification,
+      assignedAgent: agentName,
+      assignedTeam: team,
     });
 
     return res.status(200).json(toTicketResponse(savedTicket));

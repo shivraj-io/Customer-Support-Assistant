@@ -9,6 +9,8 @@ const ticketSchema = new mongoose.Schema({
     enum: ['Billing', 'Technical Issue', 'Account', 'Feature Request', 'General'],
     required: true,
   },
+  assignedAgent: String,
+  assignedTeam: String,
   priority: {
     type: String,
     enum: ['Low', 'Medium', 'High', 'Urgent'],

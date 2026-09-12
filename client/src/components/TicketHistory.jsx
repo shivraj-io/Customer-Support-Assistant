@@ -122,7 +122,10 @@ function TicketHistory({ refreshKey, onSelectTicket }) {
                   <span className={`priority-dot priority-dot-${ticket.priority?.toLowerCase()}`} aria-hidden="true" />
                   <span className="history-item-copy">
                     <strong>{ticket.subject}</strong>
-                    <small>{ticket.category} · {ticket.priority}</small>
+                    <small>
+                      {ticket.category} · {ticket.priority}
+                      {ticket.assignedTeam && <span> · {ticket.assignedTeam}</span>}
+                    </small>
                   </span>
                   <span className="history-arrow" aria-hidden="true">↗</span>
                 </button>

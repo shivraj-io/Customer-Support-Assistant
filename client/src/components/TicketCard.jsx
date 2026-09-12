@@ -47,6 +47,9 @@ function TicketCard({ ticket, onResponseChange }) {
         <span className={`badge sentiment-badge sentiment-${ticket.sentiment?.toLowerCase()}`}>
           {ticket.sentiment === 'Angry' && <span aria-hidden="true">!</span>} {ticket.sentiment}
         </span>
+        {ticket.assignedAgent && ticket.assignedTeam && (
+          <span className="badge category-badge">Assigned to: {ticket.assignedAgent} · {ticket.assignedTeam}</span>
+        )}
         <span className="confidence">{ticket.confidence}% confident</span>
         {ticket.lowConfidence && <span className="review-chip">Needs review</span>}
       </div>
