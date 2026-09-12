@@ -75,9 +75,16 @@ input[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus { box-shad
 .empty-result-message { display: grid; min-height: 330px; margin: 0; padding: 24px; place-items: center; color: #6b7280; font-size: 15px; line-height: 1.6; text-align: center; }
 .history-heading { align-items: center; margin-bottom: 16px; }
 .history-count { display: inline-flex; align-items: center; justify-content: center; min-width: 27px; height: 27px; color: #4f46e5; background: #eef2ff; border-radius: 50%; font-size: 12px; font-weight: 600; }
+.history-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.select-all-control { display: inline-flex; align-items: center; gap: 8px; color: #6b7280; font-size: 12px; }
+.select-all-control input, .history-checkbox { width: 16px; height: 16px; min-height: 0; margin: 0; accent-color: #4f46e5; }
+.delete-button { padding: 7px 10px; color: #b91c1c; background: #fff; border: 1px solid #fecaca; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; }
+.delete-button:hover:not(:disabled) { color: #991b1b; background: #fef2f2; }
+.delete-button:disabled { cursor: not-allowed; opacity: .5; }
 .history-list { display: flex; flex-direction: column; gap: 6px; }
-.history-item { display: flex; align-items: center; width: 100%; gap: 10px; padding: 10px 8px; color: #111827; background: transparent; border: 0; border-radius: 8px; cursor: pointer; text-align: left; }
+.history-item { display: flex; align-items: center; width: 100%; gap: 8px; padding: 4px 8px; background: transparent; border-radius: 8px; }
 .history-item:hover { background: #f5f3ff; }
+.history-item-button { display: flex; align-items: center; min-width: 0; flex: 1; gap: 10px; padding: 6px 0; color: #111827; background: transparent; border: 0; cursor: pointer; text-align: left; }
 .priority-dot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; }
 .priority-dot-low { background: #10b981; } .priority-dot-medium { background: #f59e0b; } .priority-dot-high { background: #f97316; } .priority-dot-urgent { background: #ef4444; }
 .history-item-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; }

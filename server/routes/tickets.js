@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import mongoose from 'mongoose';
 import { classifyTicket } from '../services/aiService.js';
 import Ticket from '../models/Ticket.js';
 
@@ -59,6 +60,22 @@ router.get('/', async (req, res) => {
   } catch (error) {
     console.error('Ticket history lookup failed:', error.message);
     return res.status(500).json({ error: 'Unable to load ticket history right now.' });
+  }
+});
+
+router.delete('/', async (req, res) => {
+  const { ids } = req.body ?? {};
+
+  if (!Array.isArray(ids) || ids.length === 0 || ids.some((id) => !mongoose.isValidObjectId(id))) {
+    return res.status(400).json({ error: 'Provide one or more valid ticket ids.' });
+  }
+
+  try {
+    const result = await Ticket.deleteMany({ _id: { $in: ids } });
+    return res.status(200).json({ deletedCount: result.deletedCount });
+  } catch (error) {
+    console.error('Ticket deletion failed:', error.message);
+    return res.status(500).json({ error: 'Unable to delete selected tickets right now.' });
   }
 });
 

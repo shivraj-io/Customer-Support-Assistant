@@ -26,3 +26,21 @@ export async function getTickets() {
 
   return rawResponse;
 }
+
+export async function deleteTickets(ids) {
+  const response = await fetch('/api/tickets', {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ ids }),
+  });
+
+  const rawResponse = await response.json();
+
+  if (!response.ok) {
+    throw new Error(rawResponse.error || 'Unable to delete selected tickets.');
+  }
+
+  return rawResponse;
+}
