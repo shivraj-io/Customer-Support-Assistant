@@ -2,6 +2,7 @@ import { Router } from 'express';
 import mongoose from 'mongoose';
 import { classifyTicket } from '../services/aiService.js';
 import { getAssignedAgent } from '../services/assignmentService.js';
+import { sanitizeSensitiveData } from '../services/sensitiveDataService.js';
 import Ticket from '../models/Ticket.js';
 
 const router = Router();
@@ -33,9 +34,23 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'Subject and description are required.' });
   }
 
+  const sanitizedSubject = sanitizeSensitiveData(subject.trim());
+  const sanitizedDescription = sanitizeSensitiveData(description.trim());
+  const detectedSensitiveTypes = [
+    ...sanitizedSubject.detectedTypes,
+    ...sanitizedDescription.detectedTypes,
+  ];
+
+  if (detectedSensitiveTypes.length > 0) {
+    console.warn('Sensitive data redacted from ticket:', [...new Set(detectedSensitiveTypes)].join(', '));
+  }
+
   let classification;
   try {
-    classification = await classifyTicket(subject.trim(), description.trim());
+    classification = await classifyTicket(
+      sanitizedSubject.sanitizedText,
+      sanitizedDescription.sanitizedText,
+    );
   } catch (error) {
     console.error('Ticket classification failed:', error.message);
     return res.status(502).json({ error: 'Unable to analyze the ticket right now. Please try again.' });
@@ -45,8 +60,8 @@ router.post('/', async (req, res) => {
     const { agentName, team } = getAssignedAgent(classification.category);
     const savedTicket = await Ticket.create({
       customerName: typeof customerName === 'string' ? customerName.trim() : '',
-      subject: subject.trim(),
-      description: description.trim(),
+      subject: sanitizedSubject.sanitizedText,
+      description: sanitizedDescription.sanitizedText,
       ...classification,
       assignedAgent: agentName,
       assignedTeam: team,
