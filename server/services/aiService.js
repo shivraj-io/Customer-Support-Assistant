@@ -61,15 +61,22 @@ export function buildPrompt(subject, description) {
     .replace('{{description}}', description);
 }
 
-function fallbackResult() {
+function fallbackResult(subject = '', description = '') {
+  const text = `${subject} ${description}`.toLowerCase();
+  const isTechnical = /\b(error|bug|crash|down|outage|unavailable|cannot|can't|unable|fail|failed|503|500|timeout|login|dashboard)\b/.test(text);
+  const isBilling = /\b(bill|billing|charge|charged|refund|invoice|payment|subscription)\b/.test(text);
+  const isAccount = /\b(account|password|sign in|login|log in|access)\b/.test(text);
+  const category = isBilling ? 'Billing' : isAccount ? 'Account' : isTechnical ? 'Technical Issue' : 'General';
+  const isUrgent = /\b(outage|down|unavailable|503|500|urgent|immediately)\b/.test(text);
+
   return {
     isSupportRequest: true,
-    category: 'General',
-    priority: 'Medium',
-    priorityReason: 'Review manually',
-    sentiment: 'Calm',
-    confidence: 50,
-    nextAction: 'Review manually',
+    category,
+    priority: isUrgent ? 'Urgent' : isTechnical ? 'High' : 'Medium',
+    priorityReason: isUrgent ? 'The ticket indicates a service outage or urgent failure.' : 'Review manually',
+    sentiment: /\b(frustrat|angry|ridiculous|immediately)\b/.test(text) ? 'Frustrated' : 'Calm',
+    confidence: 35,
+    nextAction: isTechnical ? 'Review the reported technical issue manually.' : 'Review manually',
     suggestedResponse: GENERIC_RESPONSE,
     lowConfidence: true,
   };
@@ -270,19 +277,19 @@ export async function classifyTicket(subject, description) {
       return parseAndValidate(rawOutput);
     } catch (error) {
       const hasFallback = index < providers.length - 1;
-      if (!error.retryable || !hasFallback) {
-        if (error.retryable) {
-          console.warn('All configured AI providers are temporarily unavailable; using fallback classification.', {
+      if (!hasFallback) {
+        if (error instanceof ProviderError) {
+          console.warn('All configured AI providers failed; using content-aware fallback classification.', {
             provider,
             statusCode: error.statusCode || undefined,
           });
-          return fallbackResult();
+          return fallbackResult(subject, description);
         }
 
         throw error;
       }
 
-      console.warn('AI provider unavailable; trying next configured provider.', {
+      console.warn('AI provider failed; trying next configured provider.', {
         provider,
         statusCode: error.statusCode || undefined,
         nextProvider: providers[index + 1],
