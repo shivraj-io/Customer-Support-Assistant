@@ -94,15 +94,18 @@ input[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus { box-shad
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-@media (max-width: 767px) {
-  .app-shell { width: min(100% - 32px, 620px); padding: 40px 0 48px; }
+@media (max-width: 1024px) {
   .workspace-grid { grid-template-columns: 1fr; gap: 16px; }
   .left-column { display: contents; }
   .form-card { order: 1; }
   .right-column { order: 2; }
   .history-panel { order: 3; }
-  .form-card, .result-card, .history-panel { padding: 20px; }
   .field-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 767px) {
+  .app-shell { width: min(100% - 32px, 620px); padding: 40px 0 48px; }
+  .form-card, .result-card, .history-panel { padding: 20px; }
   .section-heading { flex-direction: column; }
   .empty-result { min-height: 360px; }
   .empty-result-message { min-height: 250px; }
