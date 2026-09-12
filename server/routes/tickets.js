@@ -10,6 +10,11 @@ const MAX_SUBJECT_LENGTH = 200;
 const MAX_DESCRIPTION_LENGTH = 5000;
 const MAX_CUSTOMER_NAME_LENGTH = 120;
 
+function isClearlyUnrelatedDescription(description) {
+  const normalized = description.trim().toLowerCase();
+  return /\b(who is the prime minister of india|who is pm of india|who is the pm of india|prime minister of india)\b/.test(normalized);
+}
+
 function toTicketResponse(ticket) {
   return {
     id: ticket._id.toString(),
@@ -44,6 +49,12 @@ router.post('/', async (req, res) => {
   ) {
     return res.status(400).json({
       error: `Subject must be ${MAX_SUBJECT_LENGTH} characters or fewer, description must be ${MAX_DESCRIPTION_LENGTH} characters or fewer, and customer name must be ${MAX_CUSTOMER_NAME_LENGTH} characters or fewer.`,
+    });
+  }
+
+  if (isClearlyUnrelatedDescription(description)) {
+    return res.status(400).json({
+      error: 'Please enter a valid customer support issue or request in the description.',
     });
   }
 

@@ -10,7 +10,7 @@ function validateTicket(ticket) {
   return '';
 }
 
-function TicketForm({ onSubmitted }) {
+function TicketForm({ onSubmitted, onTicketChange }) {
   const [ticket, setTicket] = useState(emptyTicket);
   const [selectedSample, setSelectedSample] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -19,12 +19,14 @@ function TicketForm({ onSubmitted }) {
   function updateField(event) {
     const { name, value } = event.target;
     setTicket((currentTicket) => ({ ...currentTicket, [name]: value }));
+    onTicketChange();
     if (error) setError('');
   }
 
   function selectSample(event) {
     const sample = sampleTickets.find((item) => item.id === event.target.value);
     setSelectedSample(event.target.value);
+    onTicketChange();
     setError('');
     setTicket(sample ? { customerName: sample.customerName, subject: sample.subject, description: sample.description } : emptyTicket);
   }
@@ -44,6 +46,8 @@ function TicketForm({ onSubmitted }) {
       const rawResponse = await submitTicket(ticket);
       console.log('Raw ticket response:', rawResponse);
       onSubmitted(rawResponse);
+      setTicket(emptyTicket);
+      setSelectedSample('');
     } catch (submissionError) {
       setError(submissionError.message);
     } finally {
@@ -85,6 +89,6 @@ function TicketForm({ onSubmitted }) {
   );
 }
 
-TicketForm.defaultProps = { onSubmitted: () => {} };
+TicketForm.defaultProps = { onSubmitted: () => {}, onTicketChange: () => {} };
 
 export default TicketForm;

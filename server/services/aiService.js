@@ -42,7 +42,8 @@ JSON shape:
 }
 
 Relevance rules:
-- Set isSupportRequest to true only when the content describes a customer problem, question, or request related to a product or service.
+- Set isSupportRequest to true only when the DESCRIPTION itself describes a customer problem, question, or request related to a product or service.
+- Do not use a support-related subject to make an unrelated description valid.
 - Set isSupportRequest to false for general knowledge questions, politics, entertainment, coding questions unrelated to this support product, or other unrelated content.
 - When isSupportRequest is false, do not answer the unrelated question. Use category "General", priority "Low", sentiment "Calm", confidence 0, nextAction "Ask the user to enter a customer support issue", and suggestedResponse "Please enter a valid customer support issue or request."
 

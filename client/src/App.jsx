@@ -38,7 +38,10 @@ function App() {
               </div>
               <span className="status-dot">Ready</span>
             </div>
-            <TicketForm onSubmitted={handleSubmitted} />
+            <TicketForm
+              onSubmitted={handleSubmitted}
+              onTicketChange={() => setSelectedTicket(null)}
+            />
           </section>
           <TicketHistory
             refreshKey={historyRefreshKey}
